@@ -4,9 +4,7 @@ import org.gty.chord.model.BasicChordNode;
 import org.gty.chord.model.ChordNode;
 import org.gty.chord.model.fingertable.FingerTableEntry;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -34,6 +32,11 @@ public class ChordController {
         return chordNode.findSuccessor(id);
     }
 
+    @GetMapping(value = "/api/get-predecessor", produces = MediaType.APPLICATION_JSON_VALUE)
+    public BasicChordNode getPredecessor() {
+        return chordNode.getPredecessor();
+    }
+
     @GetMapping(value = "/api/add-key", produces = MediaType.APPLICATION_JSON_VALUE)
     public BasicChordNode addKey(@RequestParam("key") Long key) {
         return chordNode.addKey(key);
@@ -42,5 +45,10 @@ public class ChordController {
     @GetMapping(value = "/api/assign-key", produces = MediaType.APPLICATION_JSON_VALUE)
     public BasicChordNode assignKey(@RequestParam("key") Long key) {
         return chordNode.assignKeyLocal(key);
+    }
+
+    @PostMapping(value = "/api/notify", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public void notify(@RequestBody BasicChordNode incomingNode) {
+        chordNode.notify(incomingNode);
     }
 }

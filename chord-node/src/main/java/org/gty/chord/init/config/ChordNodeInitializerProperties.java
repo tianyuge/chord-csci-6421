@@ -11,10 +11,16 @@ public class ChordNodeInitializerProperties {
     private final Integer nodePort;
     private final Integer fingerRingSizeBits;
 
-    public ChordNodeInitializerProperties(String nodeName, Integer nodePort, Integer fingerRingSizeBits, Boolean bootstrappingNode) {
+    private final Boolean bootstrappingNode;
+    private final Integer joiningToPort;
+
+    public ChordNodeInitializerProperties(String nodeName, Integer nodePort, Integer fingerRingSizeBits, Boolean bootstrappingNode, Integer joiningToPort) {
         this.nodeName = nodeName;
         this.nodePort = nodePort;
         this.fingerRingSizeBits = fingerRingSizeBits;
+
+        this.bootstrappingNode = bootstrappingNode;
+        this.joiningToPort = joiningToPort;
     }
 
     public String getNodeName() {
@@ -29,4 +35,11 @@ public class ChordNodeInitializerProperties {
         return fingerRingSizeBits;
     }
 
+    public Boolean getBootstrappingNode() {
+        return bootstrappingNode;
+    }
+
+    public Integer getJoiningToPort() {
+        return joiningToPort;
+    }
 }
