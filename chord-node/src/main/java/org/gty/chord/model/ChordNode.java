@@ -8,15 +8,12 @@ import org.apache.commons.math3.util.ArithmeticUtils;
 import org.gty.chord.exception.ChordHealthCheckException;
 import org.gty.chord.model.fingertable.FingerTableEntry;
 import org.gty.chord.model.fingertable.FingerTableIdInterval;
+import org.gty.chord.rest.ChordNodeRestClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigInteger;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
 import java.util.Map;
@@ -48,13 +45,13 @@ public class ChordNode {
     private final Set<Long> keySet;
     private final Map<Long, BasicChordNode> nodeIdToBasicNodeObjectMap;
 
-    private final RestTemplate restTemplate;
+    private final ChordNodeRestClient chordNodeRestClient;
 
     String getNodeName() {
         return nodeName;
     }
 
-    public String getNodeAddress() {
+    String getNodeAddress() {
         return nodeAddress;
     }
 
@@ -74,7 +71,7 @@ public class ChordNode {
                      String nodeAddress,
                      Integer nodePort,
                      Integer fingerRingSizeBits,
-                     RestTemplate restTemplate) {
+                     ChordNodeRestClient chordNodeRestClient) {
         this.nodeName = nodeName;
         this.nodeAddress = nodeAddress;
         this.nodePort = nodePort;
@@ -92,7 +89,8 @@ public class ChordNode {
         fingerTable = initializeFingerTable();
         keySet = Sets.newConcurrentHashSet();
         nodeIdToBasicNodeObjectMap = initializeNodeIdToBasicNodeObjectMap();
-        this.restTemplate = restTemplate;
+
+        this.chordNodeRestClient = chordNodeRestClient;
     }
 
     private byte[] calculateSha1Hash() {
@@ -110,32 +108,30 @@ public class ChordNode {
     private List<FingerTableEntry> initializeFingerTable() {
         List<FingerTableEntry> fingerTable = new CopyOnWriteArrayList<>();
 
-        // initialize start for each finger table entry
         for (int i = 0; i < fingerRingSizeBits; ++i) {
+            // initialize start for each finger table entry
             // start = (n + 2^i) mod 2^m
             long startFingerId = (nodeId + ArithmeticUtils.pow(2L, i)) % fingerRingSize;
-            fingerTable.add(new FingerTableEntry(startFingerId, null, null));
-        }
+            fingerTable.add(new FingerTableEntry(startFingerId, null, new AtomicReference<>()));
 
-        // initialize interval for each finger table entry
-        for (int i = 0; i < fingerRingSizeBits; ++i) {
+            // initialize interval for each finger table entry
             // interval = [(n + 2^i) mod 2^m, (n + 2^(i + 1)) mod 2^m)
             long endFingerId = (nodeId + ArithmeticUtils.pow(2L, i + 1)) % fingerRingSize;
             fingerTable.get(i).setInterval(new FingerTableIdInterval(fingerTable.get(i).getStartFingerId(), endFingerId));
         }
 
         // initialize successor to self
-        fingerTable.get(0).setNodeId(nodeId);
+        fingerTable.get(0).getNodeId().set(nodeId);
 
         return fingerTable;
     }
 
     private BasicChordNode getImmediateSuccessor() {
-        return nodeIdToBasicNodeObjectMap.get(fingerTable.get(0).getNodeId());
+        return nodeIdToBasicNodeObjectMap.get(fingerTable.get(0).getNodeId().get());
     }
 
     private void setImmediateSuccessor(BasicChordNode successor) {
-        fingerTable.get(0).setNodeId(successor.getNodeId());
+        fingerTable.get(0).getNodeId().set(successor.getNodeId());
     }
 
     public BasicChordNode getPredecessor() {
@@ -188,7 +184,7 @@ public class ChordNode {
         if (closetPrecedingNode.getNodeId() == nodeId) {
             return successor;
         } else {
-            return findSuccessorRemote(closetPrecedingNode, id);
+            return chordNodeRestClient.findSuccessorRemote(closetPrecedingNode, id);
         }
     }
 
@@ -206,7 +202,7 @@ public class ChordNode {
      */
     private BasicChordNode closestPrecedingNode(long id) {
         for (int i = fingerRingSizeBits - 1; i >= 0; --i) {
-            Long currentFinger = fingerTable.get(i).getNodeId();
+            Long currentFinger = fingerTable.get(i).getNodeId().get();
 
             if (currentFinger != null) {
                 if (nodeId < id) {
@@ -228,7 +224,7 @@ public class ChordNode {
     public BasicChordNode addKey(Long key) {
         BasicChordNode successorNode = findSuccessor(key);
 
-        return assignKeyRemote(successorNode, key);
+        return chordNodeRestClient.assignKeyRemote(successorNode, key);
     }
 
     public BasicChordNode assignKey(Long key) {
@@ -245,7 +241,7 @@ public class ChordNode {
      * @param knownNode node to be joined
      */
     public void joiningToKnownNode(BasicChordNode knownNode) {
-        BasicChordNode successor = findSuccessorRemote(knownNode, nodeId);
+        BasicChordNode successor = chordNodeRestClient.findSuccessorRemote(knownNode, nodeId);
 
         setImmediateSuccessor(successor);
 
@@ -267,7 +263,7 @@ public class ChordNode {
         long successorId = successor.getNodeId();
 
         try {
-            BasicChordNode x = getPredecessorRemote(successor);
+            BasicChordNode x = chordNodeRestClient.getPredecessorRemote(successor);
 
             if (x != null) {
                 nodeIdToBasicNodeObjectMap.putIfAbsent(x.getNodeId(), x);
@@ -293,13 +289,13 @@ public class ChordNode {
         // successor.notify(n)
         logger.info("notifying successor {} about self {}", successor, self);
         try {
-            notifyRemote(successor);
+            chordNodeRestClient.notifyRemote(self, successor);
         } catch (RestClientException ex) {
             // if the successor is not alive
             // set successor to self
             setImmediateSuccessor(self);
             successor = self;
-            notifyRemote(successor);
+            chordNodeRestClient.notifyRemote(self, successor);
         }
     }
 
@@ -357,7 +353,7 @@ public class ChordNode {
         BasicChordNode node = findSuccessor((nodeId + ArithmeticUtils.pow(2L, fixFingerNext.get())) % fingerRingSize);
 
         fingerTable.get(fixFingerNext.get())
-            .setNodeId(node.getNodeId());
+            .getNodeId().set(node.getNodeId());
 
         nodeIdToBasicNodeObjectMap.putIfAbsent(node.getNodeId(), node);
     }
@@ -372,66 +368,10 @@ public class ChordNode {
         BasicChordNode predecessor = getPredecessor();
         if (predecessor != null) {
             try {
-                healthCheck(predecessor);
+                chordNodeRestClient.healthCheck(predecessor);
             } catch (ChordHealthCheckException ex) {
                 setPredecessor(null);
             }
-        }
-    }
-
-    private BasicChordNode findSuccessorRemote(BasicChordNode targetNode, long id) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://" + targetNode.getNodeAddress() + ":"
-            + targetNode.getNodePort() + "/api/find-successor")
-            .queryParam("id", id)
-            .encode(StandardCharsets.UTF_8)
-            .build(true)
-            .toUri();
-
-        return restTemplate.getForObject(uri, BasicChordNode.class);
-    }
-
-    private void notifyRemote(BasicChordNode targetNode) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://" + targetNode.getNodeAddress() + ":"
-            + targetNode.getNodePort() + "/api/notify")
-            .encode(StandardCharsets.UTF_8)
-            .build(true)
-            .toUri();
-
-        restTemplate.postForObject(uri, self, String.class);
-    }
-
-    private BasicChordNode getPredecessorRemote(BasicChordNode targetNode) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://" + targetNode.getNodeAddress() + ":"
-            + targetNode.getNodePort() + "/api/get-predecessor")
-            .encode(StandardCharsets.UTF_8)
-            .build(true)
-            .toUri();
-
-        return restTemplate.getForObject(uri, BasicChordNode.class);
-    }
-
-    private BasicChordNode assignKeyRemote(BasicChordNode targetNode, long key) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://" + targetNode.getNodeAddress() + ":"
-            + targetNode.getNodePort() + "/api/assign-key")
-            .queryParam("key", key)
-            .encode(StandardCharsets.UTF_8)
-            .build(true)
-            .toUri();
-
-        return restTemplate.getForObject(uri, BasicChordNode.class);
-    }
-
-    private void healthCheck(BasicChordNode targetNode) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://" + targetNode.getNodeAddress() + ":"
-            + targetNode.getNodePort() + "/api/get-basic-info")
-            .encode(StandardCharsets.UTF_8)
-            .build(true)
-            .toUri();
-
-        try {
-            restTemplate.getForObject(uri, BasicChordNode.class);
-        } catch (RestClientException ex) {
-            throw new ChordHealthCheckException("Chord health check for node: " + targetNode + " has failed", ex);
         }
     }
 }
