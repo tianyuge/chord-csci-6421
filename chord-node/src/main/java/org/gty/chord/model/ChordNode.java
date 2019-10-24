@@ -255,21 +255,31 @@ public class ChordNode {
         BasicChordNode successor = getImmediateSuccessor();
         long successorId = successor.getNodeId();
 
-        BasicChordNode x = getPredecessorRemote(successor);
+        try {
+            // checks if successor is alive
+            healthCheck(successor);
 
-        if (x != null) {
-            nodeIdToBasicNodeObjectMap.putIfAbsent(x.getNodeId(), x);
+            BasicChordNode x = getPredecessorRemote(successor);
 
-            if (nodeId < successorId) {
-                if (Range.open(nodeId, successorId).contains(x.getNodeId())) {
-                    setImmediateSuccessor(x);
-                }
-            } else {
-                if (Range.openClosed(nodeId, fingerRingHighestIndex).contains(x.getNodeId())
-                    || Range.closedOpen(0L, successorId).contains(x.getNodeId())) {
-                    setImmediateSuccessor(x);
+            if (x != null) {
+                nodeIdToBasicNodeObjectMap.putIfAbsent(x.getNodeId(), x);
+
+                if (nodeId < successorId) {
+                    if (Range.open(nodeId, successorId).contains(x.getNodeId())) {
+                        setImmediateSuccessor(x);
+                    }
+                } else {
+                    if (Range.openClosed(nodeId, fingerRingHighestIndex).contains(x.getNodeId())
+                        || Range.closedOpen(0L, successorId).contains(x.getNodeId())) {
+                        setImmediateSuccessor(x);
+                    }
                 }
             }
+        } catch (ChordHealthCheckException ex) {
+            // if successor is not alive
+            // set successor to self
+            setImmediateSuccessor(self);
+            successor = self;
         }
 
         // successor.notify(n)

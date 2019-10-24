@@ -1,5 +1,7 @@
 # Chord Demo Project for CSCI 6421 GWU
 
+A Java implementation of of Chord P2P DHT protocol
+
 ## How To Run
 ```
 # Build
