@@ -14,7 +14,7 @@ java -jar chord-node-1.0.0.RELEASE.jar --spring.profiles.active=default --chord.
 
 [Chord Implementation](http://web.mit.edu/6.033/2001/wwwdocs/handouts/dp2-chord.html) 
 
-[Chord Wikipedia](https://en.wikipedia.org/wiki/Chord_(peer-to-peer)
+[Chord Wikipedia](https://en.wikipedia.org/wiki/Chord_(peer-to-peer))
 
 [Chord: Building a DHT in Golang](https://medium.com/techlog/chord-building-a-dht-distributed-hash-table-in-golang-67c3ce17417b)
 
