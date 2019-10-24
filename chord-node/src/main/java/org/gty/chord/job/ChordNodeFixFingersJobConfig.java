@@ -16,7 +16,7 @@ public class ChordNodeFixFingersJobConfig {
 
     @Bean
     public JobDetail chordNodeFixFingersJobDetail(ChordNode chordNode) {
-        return JobBuilder.newJob(ChordNodeStabilizeJob.class)
+        return JobBuilder.newJob(ChordNodeFixFingersJob.class)
             .withIdentity(CHORD_NODE_FIX_FINGERS_JOB_IDENTITY)
             .usingJobData(new JobDataMap(Map.of(CHORD_NODE, chordNode)))
             .storeDurably()

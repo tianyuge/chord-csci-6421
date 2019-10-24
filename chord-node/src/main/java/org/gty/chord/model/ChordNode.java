@@ -5,10 +5,12 @@ import com.google.common.collect.Sets;
 import org.apache.commons.codec.binary.StringUtils;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.math3.util.ArithmeticUtils;
+import org.gty.chord.exception.ChordHealthCheckException;
 import org.gty.chord.model.fingertable.FingerTableEntry;
 import org.gty.chord.model.fingertable.FingerTableIdInterval;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -315,7 +317,7 @@ public class ChordNode {
      *          next = next + 1 ;
      *          if (next > m)
      *              next = 1 ;
-     *          finger[next] = find successor(n + 2^(next−1));
+     *          finger[next] = find-successor(n + 2^(next−1));
      */
     public void fixFingers() {
         fixFingerNext.incrementAndGet();
@@ -328,8 +330,23 @@ public class ChordNode {
             }
         });
 
+        BasicChordNode node = findSuccessor((nodeId + ArithmeticUtils.pow(2L, fixFingerNext.get())) % fingerRingSize);
+
         fingerTable.get(fixFingerNext.get())
-            .setNodeId(findSuccessor((nodeId + ArithmeticUtils.pow(2L, fixFingerNext.get())) % fingerRingSize).getNodeId());
+            .setNodeId(node.getNodeId());
+
+        nodeIdToBasicNodeObjectMap.putIfAbsent(node.getNodeId(), node);
+    }
+
+    public void checkPredecessor() {
+        BasicChordNode predecessor = getPredecessor();
+        if (predecessor != null) {
+            try {
+                healthCheck(predecessor);
+            } catch (ChordHealthCheckException ex) {
+                setPredecessor(null);
+            }
+        }
     }
 
     private BasicChordNode findSuccessorRemote(BasicChordNode targetNode, long id) {
@@ -368,5 +385,18 @@ public class ChordNode {
             .toUri();
 
         return restTemplate.getForObject(uri, BasicChordNode.class);
+    }
+
+    private void healthCheck(BasicChordNode targetNode) {
+        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + targetNode.getNodePort() + "/api/get-basic-info")
+            .encode(StandardCharsets.UTF_8)
+            .build(true)
+            .toUri();
+
+        try {
+            restTemplate.getForObject(uri, BasicChordNode.class);
+        } catch (RestClientException ex) {
+            throw new ChordHealthCheckException("Chord health check for node: " + targetNode + " has failed", ex);
+        }
     }
 }
