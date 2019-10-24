@@ -43,7 +43,6 @@ public class ChordNode {
     private final List<FingerTableEntry> fingerTable;
     private AtomicInteger fixFingerNext = new AtomicInteger(0);
     private final Set<Long> keySet;
-    private final Map<Long, BasicChordNode> nodeIdToBasicNodeObjectMap;
 
     private final ChordNodeRestClient chordNodeRestClient;
 
@@ -88,7 +87,6 @@ public class ChordNode {
 
         fingerTable = initializeFingerTable();
         keySet = Sets.newConcurrentHashSet();
-        nodeIdToBasicNodeObjectMap = initializeNodeIdToBasicNodeObjectMap();
 
         this.chordNodeRestClient = chordNodeRestClient;
     }
@@ -121,17 +119,17 @@ public class ChordNode {
         }
 
         // initialize successor to self
-        fingerTable.get(0).getNodeId().set(nodeId);
+        fingerTable.get(0).getNode().set(self);
 
         return fingerTable;
     }
 
     private BasicChordNode getImmediateSuccessor() {
-        return nodeIdToBasicNodeObjectMap.get(fingerTable.get(0).getNodeId().get());
+        return fingerTable.get(0).getNode().get();
     }
 
     private void setImmediateSuccessor(BasicChordNode successor) {
-        fingerTable.get(0).getNodeId().set(successor.getNodeId());
+        fingerTable.get(0).getNode().set(successor);
     }
 
     public BasicChordNode getPredecessor() {
@@ -142,15 +140,8 @@ public class ChordNode {
         this.predecessor.set(predecessor);
     }
 
-    private Map<Long, BasicChordNode> initializeNodeIdToBasicNodeObjectMap() {
-        Map<Long, BasicChordNode> nodeIdToBasicNodeObjectMap
-            = new ConcurrentHashMap<>();
-        nodeIdToBasicNodeObjectMap.put(nodeId, self);
-        return nodeIdToBasicNodeObjectMap;
-    }
-
     public BasicChordNode getBasicChordNode() {
-        return nodeIdToBasicNodeObjectMap.get(nodeId);
+        return self;
     }
 
     public Set<Long> getKeySet() {
@@ -176,7 +167,7 @@ public class ChordNode {
 
         if ( ( (nodeId <= successorId) && Range.openClosed(nodeId, successorId).contains(id) )
             || ( (nodeId > successorId) && (Range.openClosed(nodeId, fingerRingHighestIndex).contains(id) || Range.closed(0L, successorId).contains(id)) ) ) {
-            return nodeIdToBasicNodeObjectMap.get(successorId);
+            return successor;
         }
 
         BasicChordNode closetPrecedingNode = closestPrecedingNode(id);
@@ -202,17 +193,17 @@ public class ChordNode {
      */
     private BasicChordNode closestPrecedingNode(long id) {
         for (int i = fingerRingSizeBits - 1; i >= 0; --i) {
-            Long currentFinger = fingerTable.get(i).getNodeId().get();
+            BasicChordNode currentFinger = fingerTable.get(i).getNode().get();
 
             if (currentFinger != null) {
                 if (nodeId < id) {
-                    if (Range.open(nodeId, id).contains(currentFinger)) {
-                        return nodeIdToBasicNodeObjectMap.get(currentFinger);
+                    if (Range.open(nodeId, id).contains(currentFinger.getNodeId())) {
+                        return currentFinger;
                     }
                 } else {
-                    if (Range.openClosed(nodeId, fingerRingHighestIndex).contains(currentFinger)
-                        || Range.closedOpen(0L, id).contains(currentFinger)) {
-                        return nodeIdToBasicNodeObjectMap.get(currentFinger);
+                    if (Range.openClosed(nodeId, fingerRingHighestIndex).contains(currentFinger.getNodeId())
+                        || Range.closedOpen(0L, id).contains(currentFinger.getNodeId())) {
+                        return currentFinger;
                     }
                 }
             }
@@ -242,10 +233,7 @@ public class ChordNode {
      */
     public void joiningToKnownNode(BasicChordNode knownNode) {
         BasicChordNode successor = chordNodeRestClient.findSuccessorRemote(knownNode, nodeId);
-
         setImmediateSuccessor(successor);
-
-        nodeIdToBasicNodeObjectMap.putIfAbsent(successor.getNodeId(), successor);
     }
 
     /**
@@ -266,8 +254,6 @@ public class ChordNode {
             BasicChordNode x = chordNodeRestClient.getPredecessorRemote(successor);
 
             if (x != null) {
-                nodeIdToBasicNodeObjectMap.putIfAbsent(x.getNodeId(), x);
-
                 if (nodeId < successorId) {
                     if (Range.open(nodeId, successorId).contains(x.getNodeId())) {
                         setImmediateSuccessor(x);
@@ -312,20 +298,17 @@ public class ChordNode {
 
         if (predecessor == null) {
             setPredecessor(incomingNode);
-            nodeIdToBasicNodeObjectMap.putIfAbsent(incomingNode.getNodeId(), incomingNode);
             return;
         }
 
         if (predecessor.getNodeId() < nodeId) {
             if (Range.open(predecessor.getNodeId(), nodeId).contains(incomingNode.getNodeId())) {
                 setPredecessor(incomingNode);
-                nodeIdToBasicNodeObjectMap.putIfAbsent(incomingNode.getNodeId(), incomingNode);
             }
         } else {
             if (Range.openClosed(predecessor.getNodeId(), fingerRingHighestIndex).contains(incomingNode.getNodeId())
                 || Range.closedOpen(0L, nodeId).contains(incomingNode.getNodeId())) {
                 setPredecessor(incomingNode);
-                nodeIdToBasicNodeObjectMap.putIfAbsent(incomingNode.getNodeId(), incomingNode);
             }
         }
     }
@@ -352,10 +335,7 @@ public class ChordNode {
 
         BasicChordNode node = findSuccessor((nodeId + ArithmeticUtils.pow(2L, fixFingerNext.get())) % fingerRingSize);
 
-        fingerTable.get(fixFingerNext.get())
-            .getNodeId().set(node.getNodeId());
-
-        nodeIdToBasicNodeObjectMap.putIfAbsent(node.getNodeId(), node);
+        fingerTable.get(fixFingerNext.get()).getNode().set(node);
     }
 
     /**

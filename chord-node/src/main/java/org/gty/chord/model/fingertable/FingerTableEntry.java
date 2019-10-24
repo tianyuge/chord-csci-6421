@@ -1,22 +1,22 @@
 package org.gty.chord.model.fingertable;
 
 import com.google.common.base.MoreObjects;
+import org.gty.chord.model.BasicChordNode;
 
-import java.util.StringJoiner;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class FingerTableEntry {
 
     private Long startFingerId;
     private FingerTableIdInterval interval;
-    private AtomicReference<Long> NodeId;
+    private AtomicReference<BasicChordNode> node;
 
     public FingerTableEntry(Long startFingerId,
                             FingerTableIdInterval interval,
-                            AtomicReference<Long> nodeId) {
+                            AtomicReference<BasicChordNode> node) {
         this.startFingerId = startFingerId;
         this.interval = interval;
-        NodeId = nodeId;
+        this.node = node;
     }
 
     public Long getStartFingerId() {
@@ -35,12 +35,12 @@ public class FingerTableEntry {
         this.interval = interval;
     }
 
-    public AtomicReference<Long> getNodeId() {
-        return NodeId;
+    public AtomicReference<BasicChordNode> getNode() {
+        return node;
     }
 
-    public void setNodeId(AtomicReference<Long> nodeId) {
-        NodeId = nodeId;
+    public void setNode(AtomicReference<BasicChordNode> node) {
+        this.node = node;
     }
 
     @Override
@@ -48,7 +48,7 @@ public class FingerTableEntry {
         return MoreObjects.toStringHelper(this)
             .add("startFingerId", startFingerId)
             .add("interval", interval)
-            .add("NodeId", NodeId.get())
+            .add("node", node.get())
             .toString();
     }
 }
