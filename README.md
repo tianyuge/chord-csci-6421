@@ -12,7 +12,8 @@ $ ./gradlew chord-node:buildApp
 ### To start a bootstrapping node
 ```
 $ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
-      --spring.profiles.active=default \
+      --spring.profiles.active=default \ 
+      --chord.node-address="${node-address}" \
       --chord.node-name="${node-name}" \
       --chord.node-port="${port}" \
       --chord.finger-ring-size-bits="${size}" \
@@ -23,44 +24,64 @@ $ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
 ```
 $ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
       --spring.profiles.active=default \
+      --chord.node-address="${node-address}" \
       --chord.node-name="${node-name}" \
       --chord.node-port="${port}" \
       --chord.finger-ring-size-bits="${size}" \
       --chord.bootstrapping-node="false" \
+      --chord.joining-to-address="${known-node-address}" \
       --chord.joining-to-port="${known-node-port}"
 ```
 
-## Example of a Chord network of size 128 and containing 3 nodes
-### Node: John on port 18001 as a bootstrapping node
+## Example of a Chord network of size 128 and containing 4 nodes
+### Node: John on 127.0.0.1:18001 as a bootstrapping node
 ```
 $ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
       --spring.profiles.active=default \
       --chord.node-name="john" \
+      --chord.node-address="127.0.0.1" \
       --chord.node-port="18001" \
       --chord.finger-ring-size-bits="7" \
       --chord.bootstrapping-node="true"
 ```
 
-### Node: Austin on port 18652 as a normal node
+### Node: Austin on 127.0.0.1:18652 as a normal node
 ```
 $ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
       --spring.profiles.active=default \
       --chord.node-name="austin" \
+      --chord.node-address="127.0.0.1" \
       --chord.node-port="18652" \
       --chord.finger-ring-size-bits="7" \
       --chord.bootstrapping-node="false" \
+      --chord.joining-to-address="127.0.0.1" \
       --chord.joining-to-port="18001"
 ```
 
-### Node: Taylor on port 18162 as a normal node
+### Node: Taylor on 127.0.0.1:18162 as a normal node
 ```
 $ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
       --spring.profiles.active=default \
-      --chord.node-name="taylor" \
+      --chord.node-name="austin" \
+      --chord.node-address="127.0.0.1" \
       --chord.node-port="18162" \
       --chord.finger-ring-size-bits="7" \
       --chord.bootstrapping-node="false" \
+      --chord.joining-to-address="127.0.0.1" \
       --chord.joining-to-port="18652"
+```
+
+### Node: Matthew on 127.0.0.1:18777 as a normal node
+```
+$ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
+      --spring.profiles.active=default \
+      --chord.node-name="austin" \
+      --chord.node-address="127.0.0.1" \
+      --chord.node-port="18777" \
+      --chord.finger-ring-size-bits="7" \
+      --chord.bootstrapping-node="false" \
+      --chord.joining-to-address="127.0.0.1" \
+      --chord.joining-to-port="18001"
 ```
 
 ## References
