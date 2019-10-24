@@ -348,6 +348,12 @@ public class ChordNode {
         nodeIdToBasicNodeObjectMap.putIfAbsent(node.getNodeId(), node);
     }
 
+    /**
+     * called periodically. checks whether predecessor has failed.
+     *      n.check predecessor()
+     *          if (predecessor has failed)
+     *              predecessor = nil;
+     */
     public void checkPredecessor() {
         BasicChordNode predecessor = getPredecessor();
         if (predecessor != null) {

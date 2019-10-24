@@ -3,56 +3,67 @@
 A Java implementation of of Chord P2P DHT protocol
 
 ## How To Run
+
+### Build
 ```
-# Build
-./gradlew chord-node:buildApp
-
-# To start a bootstrapping node
-java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
-    --spring.profiles.active=default \
-    --chord.node-name="${node-name}" \
-    --chord.node-port="${port}" \
-    --chord.finger-ring-size-bits="${size}" \
-    --chord.bootstrapping-node="true"
-
-# To start a normal node
-java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
-    --spring.profiles.active=default \
-    --chord.node-name="${node-name}" \
-    --chord.node-port="${port}" \
-    --chord.finger-ring-size-bits="${size}" \
-    --chord.bootstrapping-node="false" \
-    --chord.joining-to-port="${known-node-port}"
-
-# Example of a Chord network of size 128 and 3 nodes
-# Node: John with port 18001 as a bootstrapping node
-java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
-    --spring.profiles.active=default \
-    --chord.node-name="john" \
-    --chord.node-port="18001" \
-    --chord.finger-ring-size-bits="7" \
-    --chord.bootstrapping-node="true"
-
-# Node: Austin with port 18652 as a normal node
-java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
-    --spring.profiles.active=default \
-    --chord.node-name="austin" \
-    --chord.node-port="18652" \
-    --chord.finger-ring-size-bits="7" \
-    --chord.bootstrapping-node="false" \
-    --chord.joining-to-port="18001"
-
-# Node: Taylor with port 18162 as a normal node
-java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
-    --spring.profiles.active=default \
-    --chord.node-name="taylor" \
-    --chord.node-port="18162" \
-    --chord.finger-ring-size-bits="7" \
-    --chord.bootstrapping-node="false" \
-    --chord.joining-to-port="18652"
+$ ./gradlew chord-node:buildApp
 ```
 
-## Reference
+### To start a bootstrapping node
+```
+$ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
+      --spring.profiles.active=default \
+      --chord.node-name="${node-name}" \
+      --chord.node-port="${port}" \
+      --chord.finger-ring-size-bits="${size}" \
+      --chord.bootstrapping-node="true"
+```
+
+### To start a normal node
+```
+$ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
+      --spring.profiles.active=default \
+      --chord.node-name="${node-name}" \
+      --chord.node-port="${port}" \
+      --chord.finger-ring-size-bits="${size}" \
+      --chord.bootstrapping-node="false" \
+      --chord.joining-to-port="${known-node-port}"
+```
+
+## Example of a Chord network of size 128 and 3 nodes
+### Node: John on port 18001 as a bootstrapping node
+```
+$ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
+      --spring.profiles.active=default \
+      --chord.node-name="john" \
+      --chord.node-port="18001" \
+      --chord.finger-ring-size-bits="7" \
+      --chord.bootstrapping-node="true"
+```
+
+### Node: Austin on port 18652 as a normal node
+```
+$ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
+      --spring.profiles.active=default \
+      --chord.node-name="austin" \
+      --chord.node-port="18652" \
+      --chord.finger-ring-size-bits="7" \
+      --chord.bootstrapping-node="false" \
+      --chord.joining-to-port="18001"
+```
+
+### Node: Taylor on port 18162 as a normal node
+```
+$ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
+      --spring.profiles.active=default \
+      --chord.node-name="taylor" \
+      --chord.node-port="18162" \
+      --chord.finger-ring-size-bits="7" \
+      --chord.bootstrapping-node="false" \
+      --chord.joining-to-port="18652"
+```
+
+## References
 
 [Chord: A Scalable Peer-to-peer Lookup Protocol
  for Internet Applications](https://pdos.csail.mit.edu/papers/ton:chord/paper-ton.pdf)
