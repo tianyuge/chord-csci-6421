@@ -9,7 +9,6 @@ import org.gty.chord.model.fingertable.FingerTableEntry;
 import org.gty.chord.model.fingertable.FingerTableIdInterval;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -145,6 +144,10 @@ public class ChordNode {
         return nodeIdToBasicNodeObjectMap.get(nodeId);
     }
 
+    public Set<Long> getKeySet() {
+        return keySet;
+    }
+
     /**
      * ask node n to find the successor of id
      *
@@ -209,39 +212,15 @@ public class ChordNode {
         return self;
     }
 
-    private BasicChordNode findSuccessorRemote(BasicChordNode targetNode, long id) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + targetNode.getNodePort() + "/api/find-successor")
-            .queryParam("id", id)
-            .encode(StandardCharsets.UTF_8)
-            .build(true)
-            .toUri();
-
-        return restTemplate.getForObject(uri, BasicChordNode.class);
-    }
-
     public BasicChordNode addKey(Long key) {
         BasicChordNode successorNode = findSuccessor(key);
 
-        if (successorNode.getNodeId() == self.getNodeId()) {
-            return assignKeyLocal(key);
-        } else {
-            return assignKeyRemote(successorNode, key);
-        }
+        return assignKeyRemote(successorNode, key);
     }
 
-    public BasicChordNode assignKeyLocal(Long key) {
+    public BasicChordNode assignKey(Long key) {
         keySet.add(key);
         return self;
-    }
-
-    private BasicChordNode assignKeyRemote(BasicChordNode targetNode, long key) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + targetNode.getNodePort() + "/api/assign-key")
-            .queryParam("key", key)
-            .encode(StandardCharsets.UTF_8)
-            .build(true)
-            .toUri();
-
-        return restTemplate.getForObject(uri, BasicChordNode.class);
     }
 
     /**
@@ -270,7 +249,6 @@ public class ChordNode {
      *          successor.notify(n);
      *
      */
-    @Scheduled(fixedRate = 1_000L)
     public void stabilize() {
         BasicChordNode successor = getImmediateSuccessor();
         long successorId = successor.getNodeId();
@@ -297,17 +275,8 @@ public class ChordNode {
         notifyRemote(successor);
     }
 
-    private BasicChordNode getPredecessorRemote(BasicChordNode targetNode) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + targetNode.getNodePort() + "/api/get-predecessor")
-            .encode(StandardCharsets.UTF_8)
-            .build(true)
-            .toUri();
-
-        return restTemplate.getForObject(uri, BasicChordNode.class);
-    }
-
     /**
-     * // n' thinks it might be our predecessor.
+     * n' thinks it might be our predecessor.
      *      n.notify(n')
      *          if (predecessor is nil or n' ∈ (predecessor, n))
      *              predecessor = n';
@@ -337,15 +306,6 @@ public class ChordNode {
         }
     }
 
-    private void notifyRemote(BasicChordNode targetNode) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + targetNode.getNodePort() + "/api/notify")
-            .encode(StandardCharsets.UTF_8)
-            .build(true)
-            .toUri();
-
-        restTemplate.postForObject(uri, self, String.class);
-    }
-
     private AtomicInteger fixFingerNext = new AtomicInteger(0);
 
     /**
@@ -357,7 +317,6 @@ public class ChordNode {
      *              next = 1 ;
      *          finger[next] = find successor(n + 2^(next−1));
      */
-    @Scheduled(fixedRate = 1_500L)
     public void fixFingers() {
         fixFingerNext.incrementAndGet();
 
@@ -371,5 +330,43 @@ public class ChordNode {
 
         fingerTable.get(fixFingerNext.get())
             .setNodeId(findSuccessor((nodeId + ArithmeticUtils.pow(2L, fixFingerNext.get())) % fingerRingSize).getNodeId());
+    }
+
+    private BasicChordNode findSuccessorRemote(BasicChordNode targetNode, long id) {
+        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + targetNode.getNodePort() + "/api/find-successor")
+            .queryParam("id", id)
+            .encode(StandardCharsets.UTF_8)
+            .build(true)
+            .toUri();
+
+        return restTemplate.getForObject(uri, BasicChordNode.class);
+    }
+
+    private void notifyRemote(BasicChordNode targetNode) {
+        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + targetNode.getNodePort() + "/api/notify")
+            .encode(StandardCharsets.UTF_8)
+            .build(true)
+            .toUri();
+
+        restTemplate.postForObject(uri, self, String.class);
+    }
+
+    private BasicChordNode getPredecessorRemote(BasicChordNode targetNode) {
+        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + targetNode.getNodePort() + "/api/get-predecessor")
+            .encode(StandardCharsets.UTF_8)
+            .build(true)
+            .toUri();
+
+        return restTemplate.getForObject(uri, BasicChordNode.class);
+    }
+
+    private BasicChordNode assignKeyRemote(BasicChordNode targetNode, long key) {
+        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + targetNode.getNodePort() + "/api/assign-key")
+            .queryParam("key", key)
+            .encode(StandardCharsets.UTF_8)
+            .build(true)
+            .toUri();
+
+        return restTemplate.getForObject(uri, BasicChordNode.class);
     }
 }

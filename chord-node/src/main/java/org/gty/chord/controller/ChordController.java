@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Set;
 
 @RestController
 public class ChordController {
@@ -44,7 +45,12 @@ public class ChordController {
 
     @GetMapping(value = "/api/assign-key", produces = MediaType.APPLICATION_JSON_VALUE)
     public BasicChordNode assignKey(@RequestParam("key") Long key) {
-        return chordNode.assignKeyLocal(key);
+        return chordNode.assignKey(key);
+    }
+
+    @GetMapping(value = "/api/fetch-key-set", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Set<?> fetchKeySet() {
+        return chordNode.getKeySet();
     }
 
     @PostMapping(value = "/api/notify", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
