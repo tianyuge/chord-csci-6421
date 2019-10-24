@@ -31,6 +31,7 @@ public class ChordNode {
     private static final Logger logger = LoggerFactory.getLogger(ChordNode.class);
 
     private final String nodeName;
+    private final String nodeAddress;
     private final Integer nodePort;
     private final long nodeId;
     private final Integer fingerRingSizeBits;
@@ -43,6 +44,7 @@ public class ChordNode {
     private AtomicReference<BasicChordNode> predecessor;
 
     private final List<FingerTableEntry> fingerTable;
+    private AtomicInteger fixFingerNext = new AtomicInteger(0);
     private final Set<Long> keySet;
     private final Map<Long, BasicChordNode> nodeIdToBasicNodeObjectMap;
 
@@ -50,6 +52,10 @@ public class ChordNode {
 
     String getNodeName() {
         return nodeName;
+    }
+
+    public String getNodeAddress() {
+        return nodeAddress;
     }
 
     Integer getNodePort() {
@@ -64,8 +70,13 @@ public class ChordNode {
         return fingerTable;
     }
 
-    public ChordNode(String nodeName, Integer nodePort, Integer fingerRingSizeBits, RestTemplate restTemplate) {
+    public ChordNode(String nodeName,
+                     String nodeAddress,
+                     Integer nodePort,
+                     Integer fingerRingSizeBits,
+                     RestTemplate restTemplate) {
         this.nodeName = nodeName;
+        this.nodeAddress = nodeAddress;
         this.nodePort = nodePort;
         this.fingerRingSizeBits = fingerRingSizeBits;
 
@@ -85,14 +96,14 @@ public class ChordNode {
     }
 
     private byte[] calculateSha1Hash() {
-        String nodeInfo = nodeName + ":" + nodePort;
+        String nodeInfo = nodeName + ":" + nodeAddress + ":" + nodePort;
         MessageDigest digest = DigestUtils.getSha1Digest();
         return DigestUtils.digest(digest, StringUtils.getBytesUtf8(nodeInfo));
     }
 
     private long truncateHashToNodeId() {
         String bits = new BigInteger(sha1Hash).toString(2);
-        String truncatedBits = org.apache.commons.lang3.StringUtils.substring(bits, 1, fingerRingSizeBits + 1);
+        String truncatedBits = org.apache.commons.lang3.StringUtils.substring(bits, 37, fingerRingSizeBits + 37);
         return Long.parseLong(truncatedBits, 2);
     }
 
@@ -256,9 +267,6 @@ public class ChordNode {
         long successorId = successor.getNodeId();
 
         try {
-            // checks if successor is alive
-            healthCheck(successor);
-
             BasicChordNode x = getPredecessorRemote(successor);
 
             if (x != null) {
@@ -275,7 +283,7 @@ public class ChordNode {
                     }
                 }
             }
-        } catch (ChordHealthCheckException ex) {
+        } catch (RestClientException ex) {
             // if successor is not alive
             // set successor to self
             setImmediateSuccessor(self);
@@ -284,7 +292,15 @@ public class ChordNode {
 
         // successor.notify(n)
         logger.info("notifying successor {} about self {}", successor, self);
-        notifyRemote(successor);
+        try {
+            notifyRemote(successor);
+        } catch (RestClientException ex) {
+            // if the successor is not alive
+            // set successor to self
+            setImmediateSuccessor(self);
+            successor = self;
+            notifyRemote(successor);
+        }
     }
 
     /**
@@ -317,8 +333,6 @@ public class ChordNode {
             }
         }
     }
-
-    private AtomicInteger fixFingerNext = new AtomicInteger(0);
 
     /**
      * called periodically. refreshes finger table entries.
@@ -366,7 +380,8 @@ public class ChordNode {
     }
 
     private BasicChordNode findSuccessorRemote(BasicChordNode targetNode, long id) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + targetNode.getNodePort() + "/api/find-successor")
+        URI uri = UriComponentsBuilder.fromHttpUrl("http://" + targetNode.getNodeAddress() + ":"
+            + targetNode.getNodePort() + "/api/find-successor")
             .queryParam("id", id)
             .encode(StandardCharsets.UTF_8)
             .build(true)
@@ -376,7 +391,8 @@ public class ChordNode {
     }
 
     private void notifyRemote(BasicChordNode targetNode) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + targetNode.getNodePort() + "/api/notify")
+        URI uri = UriComponentsBuilder.fromHttpUrl("http://" + targetNode.getNodeAddress() + ":"
+            + targetNode.getNodePort() + "/api/notify")
             .encode(StandardCharsets.UTF_8)
             .build(true)
             .toUri();
@@ -385,7 +401,8 @@ public class ChordNode {
     }
 
     private BasicChordNode getPredecessorRemote(BasicChordNode targetNode) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + targetNode.getNodePort() + "/api/get-predecessor")
+        URI uri = UriComponentsBuilder.fromHttpUrl("http://" + targetNode.getNodeAddress() + ":"
+            + targetNode.getNodePort() + "/api/get-predecessor")
             .encode(StandardCharsets.UTF_8)
             .build(true)
             .toUri();
@@ -394,7 +411,8 @@ public class ChordNode {
     }
 
     private BasicChordNode assignKeyRemote(BasicChordNode targetNode, long key) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + targetNode.getNodePort() + "/api/assign-key")
+        URI uri = UriComponentsBuilder.fromHttpUrl("http://" + targetNode.getNodeAddress() + ":"
+            + targetNode.getNodePort() + "/api/assign-key")
             .queryParam("key", key)
             .encode(StandardCharsets.UTF_8)
             .build(true)
@@ -404,7 +422,8 @@ public class ChordNode {
     }
 
     private void healthCheck(BasicChordNode targetNode) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + targetNode.getNodePort() + "/api/get-basic-info")
+        URI uri = UriComponentsBuilder.fromHttpUrl("http://" + targetNode.getNodeAddress() + ":"
+            + targetNode.getNodePort() + "/api/get-basic-info")
             .encode(StandardCharsets.UTF_8)
             .build(true)
             .toUri();

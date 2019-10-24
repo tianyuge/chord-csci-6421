@@ -12,6 +12,7 @@ public class ChordNodeConfig {
     @Bean
     public ChordNode chordNode(ChordNodeInitializerProperties properties, RestTemplateBuilder restTemplateBuilder) {
         return new ChordNode(properties.getNodeName(),
+            properties.getNodeAddress(),
             properties.getNodePort(),
             properties.getFingerRingSizeBits(),
             restTemplateBuilder.build()

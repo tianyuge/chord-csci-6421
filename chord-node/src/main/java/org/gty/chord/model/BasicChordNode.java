@@ -5,6 +5,7 @@ import com.google.common.base.MoreObjects;
 public class BasicChordNode {
 
     private String nodeName;
+    private String nodeAddress;
     private Integer nodePort;
     private long nodeId;
 
@@ -12,11 +13,15 @@ public class BasicChordNode {
     }
 
     BasicChordNode(ChordNode chordNode) {
-        this(chordNode.getNodeName() ,chordNode.getNodePort(), chordNode.getNodeId());
+        this(chordNode.getNodeName(),
+            chordNode.getNodeAddress(),
+            chordNode.getNodePort(),
+            chordNode.getNodeId());
     }
 
-    public BasicChordNode(String nodeName, Integer nodePort, long nodeId) {
+    public BasicChordNode(String nodeName, String nodeAddress, Integer nodePort, long nodeId) {
         this.nodeName = nodeName;
+        this.nodeAddress = nodeAddress;
         this.nodePort = nodePort;
         this.nodeId = nodeId;
     }
@@ -45,10 +50,19 @@ public class BasicChordNode {
         this.nodeId = nodeId;
     }
 
+    public String getNodeAddress() {
+        return nodeAddress;
+    }
+
+    public void setNodeAddress(String nodeAddress) {
+        this.nodeAddress = nodeAddress;
+    }
+
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
             .add("nodeName", nodeName)
+            .add("nodeAddress", nodeAddress)
             .add("nodePort", nodePort)
             .add("nodeId", nodeId)
             .toString();

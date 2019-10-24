@@ -8,18 +8,22 @@ import org.springframework.boot.context.properties.ConstructorBinding;
 public class ChordNodeInitializerProperties {
 
     private final String nodeName;
+    private final String nodeAddress;
     private final Integer nodePort;
     private final Integer fingerRingSizeBits;
 
     private final Boolean bootstrappingNode;
+    private final String joiningToAddress;
     private final Integer joiningToPort;
 
-    public ChordNodeInitializerProperties(String nodeName, Integer nodePort, Integer fingerRingSizeBits, Boolean bootstrappingNode, Integer joiningToPort) {
+    public ChordNodeInitializerProperties(String nodeName, String nodeAddress, Integer nodePort, Integer fingerRingSizeBits, Boolean bootstrappingNode, String joiningToAddress, Integer joiningToPort) {
         this.nodeName = nodeName;
+        this.nodeAddress = nodeAddress;
         this.nodePort = nodePort;
         this.fingerRingSizeBits = fingerRingSizeBits;
 
         this.bootstrappingNode = bootstrappingNode;
+        this.joiningToAddress = joiningToAddress;
         this.joiningToPort = joiningToPort;
     }
 
@@ -41,5 +45,13 @@ public class ChordNodeInitializerProperties {
 
     public Integer getJoiningToPort() {
         return joiningToPort;
+    }
+
+    public String getNodeAddress() {
+        return nodeAddress;
+    }
+
+    public String getJoiningToAddress() {
+        return joiningToAddress;
     }
 }

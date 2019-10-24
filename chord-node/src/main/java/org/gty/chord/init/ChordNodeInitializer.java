@@ -49,14 +49,16 @@ public class ChordNodeInitializer {
 
     private void joiningThisNodeToExistingNodeIfPossible() {
         // if this node is not bootstrappingNode
-        if (!properties.getBootstrappingNode() && properties.getJoiningToPort() != null) {
-            BasicChordNode existingNode = queryKnownNodeByPortRemote(properties.getJoiningToPort());
+        if (!properties.getBootstrappingNode()
+            && properties.getJoiningToAddress() != null
+            && properties.getJoiningToPort() != null) {
+            BasicChordNode existingNode = queryKnownNodeByPortRemote(properties.getNodeAddress(), properties.getJoiningToPort());
             chordNode.joiningToKnownNode(existingNode);
         }
     }
 
-    private BasicChordNode queryKnownNodeByPortRemote(Integer knownNodePort) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + knownNodePort + "/api/get-basic-info")
+    private BasicChordNode queryKnownNodeByPortRemote(String knownNodeAddress, Integer knownNodePort) {
+        URI uri = UriComponentsBuilder.fromHttpUrl("http://" + knownNodeAddress + ":" + knownNodePort + "/api/get-basic-info")
             .encode(StandardCharsets.UTF_8)
             .build(true)
             .toUri();

@@ -5,3 +5,9 @@ spring:
   http:
     encoding:
       force: true
+  quartz:
+    properties:
+      org:
+        quartz:
+          threadPool:
+            threadCount: 50
