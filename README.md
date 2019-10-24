@@ -1,4 +1,4 @@
-#Chord Demo Project for CSCI 6421 GWU
+# Chord Demo Project for CSCI 6421 GWU
 
 ## How To Run
 
