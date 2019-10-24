@@ -22,7 +22,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class ChordNode {
 
@@ -34,10 +35,11 @@ public class ChordNode {
     private final Integer fingerRingSizeBits;
     private final byte[] sha1Hash;
 
-    private final BasicChordNode self;
-    private BasicChordNode predecessor;
+    private final long fingerRingSize;
+    private final long fingerRingHighestIndex;
 
-    private ReentrantLock predecessorLock = new ReentrantLock();
+    private final BasicChordNode self;
+    private AtomicReference<BasicChordNode> predecessor;
 
     private final List<FingerTableEntry> fingerTable;
     private final Set<Long> keySet;
@@ -61,31 +63,24 @@ public class ChordNode {
         return fingerTable;
     }
 
-    public BasicChordNode getPredecessor() {
-        predecessorLock.lock();
-        try {
-            return predecessor;
-        } finally {
-            predecessorLock.unlock();
-        }
-    }
-
     public ChordNode(String nodeName, Integer nodePort, Integer fingerRingSizeBits, RestTemplate restTemplate) {
         this.nodeName = nodeName;
         this.nodePort = nodePort;
         this.fingerRingSizeBits = fingerRingSizeBits;
 
+        fingerRingSize = ArithmeticUtils.pow(2L, fingerRingSizeBits);
+        fingerRingHighestIndex = fingerRingSize - 1L;
+
         sha1Hash = calculateSha1Hash();
         nodeId = truncateHashToNodeId();
 
+        predecessor = new AtomicReference<>();
         self = new BasicChordNode(this);
 
         fingerTable = initializeFingerTable();
         keySet = Sets.newConcurrentHashSet();
         nodeIdToBasicNodeObjectMap = initializeNodeIdToBasicNodeObjectMap();
         this.restTemplate = restTemplate;
-
-        predecessor = self;
     }
 
     private byte[] calculateSha1Hash() {
@@ -95,30 +90,48 @@ public class ChordNode {
     }
 
     private long truncateHashToNodeId() {
-        // TODO
         String bits = new BigInteger(sha1Hash).toString(2);
-        String truncatedBits = org.apache.commons.lang3.StringUtils.substring(bits, 0, fingerRingSizeBits);
+        String truncatedBits = org.apache.commons.lang3.StringUtils.substring(bits, 1, fingerRingSizeBits + 1);
         return Long.parseLong(truncatedBits, 2);
     }
 
     private List<FingerTableEntry> initializeFingerTable() {
         List<FingerTableEntry> fingerTable = new CopyOnWriteArrayList<>();
 
+        // initialize start for each finger table entry
         for (int i = 0; i < fingerRingSizeBits; ++i) {
             // start = (n + 2^i) mod 2^m
-            long startFingerId = (nodeId + ArithmeticUtils.pow(2L, i)) % ArithmeticUtils.pow(2L, fingerRingSizeBits);
+            long startFingerId = (nodeId + ArithmeticUtils.pow(2L, i)) % fingerRingSize;
             fingerTable.add(new FingerTableEntry(startFingerId, null, null));
         }
 
+        // initialize interval for each finger table entry
         for (int i = 0; i < fingerRingSizeBits; ++i) {
             // interval = [(n + 2^i) mod 2^m, (n + 2^(i + 1)) mod 2^m)
-            long endFingerId = (nodeId + ArithmeticUtils.pow(2L, i + 1)) % ArithmeticUtils.pow(2L, fingerRingSizeBits);
+            long endFingerId = (nodeId + ArithmeticUtils.pow(2L, i + 1)) % fingerRingSize;
             fingerTable.get(i).setInterval(new FingerTableIdInterval(fingerTable.get(i).getStartFingerId(), endFingerId));
         }
 
-        fingerTable.forEach(entry -> entry.setNodeId(nodeId));
+        // initialize successor to self
+        fingerTable.get(0).setNodeId(nodeId);
 
         return fingerTable;
+    }
+
+    private BasicChordNode getImmediateSuccessor() {
+        return nodeIdToBasicNodeObjectMap.get(fingerTable.get(0).getNodeId());
+    }
+
+    private void setImmediateSuccessor(BasicChordNode successor) {
+        fingerTable.get(0).setNodeId(successor.getNodeId());
+    }
+
+    public BasicChordNode getPredecessor() {
+        return predecessor.get();
+    }
+
+    private void setPredecessor(BasicChordNode predecessor) {
+        this.predecessor.set(predecessor);
     }
 
     private Map<Long, BasicChordNode> initializeNodeIdToBasicNodeObjectMap() {
@@ -146,37 +159,21 @@ public class ChordNode {
      * @return successor of id
      */
     public BasicChordNode findSuccessor(long id) {
-        long successorId = fingerTable.get(0).getNodeId();
+        BasicChordNode successor = getImmediateSuccessor();
+        long successorId = successor.getNodeId();
 
-        if (nodeId < successorId) {
-            if (Range.openClosed(nodeId, successorId).contains(id)) {
-                return nodeIdToBasicNodeObjectMap.get(successorId);
-            }
-        } else {
-            if (Range.openClosed(nodeId, ArithmeticUtils.pow(2L, fingerRingSizeBits) - 1).contains(id)
-                || Range.closedOpen(0L, successorId).contains(id)) {
-                return nodeIdToBasicNodeObjectMap.get(successorId);
-            }
+        if ( ( (nodeId <= successorId) && Range.openClosed(nodeId, successorId).contains(id) )
+            || ( (nodeId > successorId) && (Range.openClosed(nodeId, fingerRingHighestIndex).contains(id) || Range.closed(0L, successorId).contains(id)) ) ) {
+            return nodeIdToBasicNodeObjectMap.get(successorId);
         }
 
         BasicChordNode closetPrecedingNode = closestPrecedingNode(id);
 
         if (closetPrecedingNode.getNodeId() == nodeId) {
-            return self;
+            return successor;
         } else {
-            // remote rpc call;
             return findSuccessorRemote(closetPrecedingNode, id);
         }
-    }
-
-    private BasicChordNode findSuccessorRemote(BasicChordNode targetNode, long id) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + targetNode.getNodePort() + "/api/find-successor")
-            .queryParam("id", id)
-            .encode(StandardCharsets.UTF_8)
-            .build(true)
-            .toUri();
-
-        return restTemplate.getForObject(uri, BasicChordNode.class);
     }
 
     /**
@@ -193,19 +190,33 @@ public class ChordNode {
      */
     private BasicChordNode closestPrecedingNode(long id) {
         for (int i = fingerRingSizeBits - 1; i >= 0; --i) {
-            if (nodeId < id) {
-                if (Range.open(nodeId, id).contains(fingerTable.get(i).getNodeId())) {
-                    return nodeIdToBasicNodeObjectMap.get(fingerTable.get(i).getNodeId());
-                }
-            } else {
-                if (Range.openClosed(nodeId, ArithmeticUtils.pow(2L, fingerRingSizeBits) - 1).contains(fingerTable.get(i).getNodeId())
-                    || Range.closedOpen(0L, id).contains(fingerTable.get(i).getNodeId())) {
-                    return nodeIdToBasicNodeObjectMap.get(fingerTable.get(i).getNodeId());
+            Long currentFinger = fingerTable.get(i).getNodeId();
+
+            if (currentFinger != null) {
+                if (nodeId < id) {
+                    if (Range.open(nodeId, id).contains(currentFinger)) {
+                        return nodeIdToBasicNodeObjectMap.get(currentFinger);
+                    }
+                } else {
+                    if (Range.openClosed(nodeId, fingerRingHighestIndex).contains(currentFinger)
+                        || Range.closedOpen(0L, id).contains(currentFinger)) {
+                        return nodeIdToBasicNodeObjectMap.get(currentFinger);
+                    }
                 }
             }
         }
 
-        return nodeIdToBasicNodeObjectMap.get(nodeId);
+        return self;
+    }
+
+    private BasicChordNode findSuccessorRemote(BasicChordNode targetNode, long id) {
+        URI uri = UriComponentsBuilder.fromHttpUrl("http://localhost:" + targetNode.getNodePort() + "/api/find-successor")
+            .queryParam("id", id)
+            .encode(StandardCharsets.UTF_8)
+            .build(true)
+            .toUri();
+
+        return restTemplate.getForObject(uri, BasicChordNode.class);
     }
 
     public BasicChordNode addKey(Long key) {
@@ -233,35 +244,57 @@ public class ChordNode {
         return restTemplate.getForObject(uri, BasicChordNode.class);
     }
 
+    /**
+     * join a Chord ring containing node n'
+     *      n.join(n')
+     *          predecessor = nil;
+     *          successor = n'.find-successor(n);
+     *
+     * @param knownNode node to be joined
+     */
     public void joiningToKnownNode(BasicChordNode knownNode) {
-        BasicChordNode successorNode = findSuccessorRemote(knownNode, nodeId);
-        fingerTable.get(0).setNodeId(successorNode.getNodeId());
+        BasicChordNode successor = findSuccessorRemote(knownNode, nodeId);
 
-        nodeIdToBasicNodeObjectMap.put(successorNode.getNodeId(), successorNode);
+        setImmediateSuccessor(successor);
+
+        nodeIdToBasicNodeObjectMap.putIfAbsent(successor.getNodeId(), successor);
     }
 
+    /**
+     * called periodically. verifies n’s immediate
+     * successor, and tells the successor about n.
+     *      n.stabilize()
+     *          x = successor.predecessor;
+     *          if (x ∈ (n,successor))
+     *              successor = x;
+     *          successor.notify(n);
+     *
+     */
     @Scheduled(fixedRate = 1_000L)
     public void stabilize() {
-        BasicChordNode x = getPredecessorRemote(nodeIdToBasicNodeObjectMap.get(fingerTable.get(0).getNodeId()));
+        BasicChordNode successor = getImmediateSuccessor();
+        long successorId = successor.getNodeId();
 
-        nodeIdToBasicNodeObjectMap.putIfAbsent(x.getNodeId(), x);
+        BasicChordNode x = getPredecessorRemote(successor);
 
-        if (nodeId < fingerTable.get(0).getNodeId()) {
-            if (Range.open(nodeId, fingerTable.get(0).getNodeId()).contains(x.getNodeId())) {
-                fingerTable.get(0).setNodeId(x.getNodeId());
+        if (x != null) {
+            nodeIdToBasicNodeObjectMap.putIfAbsent(x.getNodeId(), x);
+
+            if (nodeId < successorId) {
+                if (Range.open(nodeId, successorId).contains(x.getNodeId())) {
+                    setImmediateSuccessor(x);
+                }
+            } else {
+                if (Range.openClosed(nodeId, fingerRingHighestIndex).contains(x.getNodeId())
+                    || Range.closedOpen(0L, successorId).contains(x.getNodeId())) {
+                    setImmediateSuccessor(x);
+                }
             }
-        } else if (nodeId > fingerTable.get(0).getNodeId()) {
-            if (Range.openClosed(nodeId, ArithmeticUtils.pow(2L, fingerRingSizeBits) - 1).contains(x.getNodeId())
-                || Range.closedOpen(0L, fingerTable.get(0).getNodeId()).contains(x.getNodeId())) {
-                fingerTable.get(0).setNodeId(x.getNodeId());
-            }
-        } else {
-            fingerTable.get(0).setNodeId(x.getNodeId());
         }
 
         // successor.notify(n)
-        logger.info("notifying {} about self", nodeIdToBasicNodeObjectMap.get(fingerTable.get(0).getNodeId()));
-        notifyRemote(nodeIdToBasicNodeObjectMap.get(fingerTable.get(0).getNodeId()));
+        logger.info("notifying successor {} about self {}", successor, self);
+        notifyRemote(successor);
     }
 
     private BasicChordNode getPredecessorRemote(BasicChordNode targetNode) {
@@ -273,33 +306,34 @@ public class ChordNode {
         return restTemplate.getForObject(uri, BasicChordNode.class);
     }
 
+    /**
+     * // n' thinks it might be our predecessor.
+     *      n.notify(n')
+     *          if (predecessor is nil or n' ∈ (predecessor, n))
+     *              predecessor = n';
+     *
+     * @param incomingNode node to be notified
+     */
     public void notify(BasicChordNode incomingNode) {
-        predecessorLock.lock();
+        BasicChordNode predecessor = getPredecessor();
 
-        try {
-            if (predecessor.getNodeId() == self.getNodeId()) {
-                predecessor = incomingNode;
+        if (predecessor == null) {
+            setPredecessor(incomingNode);
+            nodeIdToBasicNodeObjectMap.putIfAbsent(incomingNode.getNodeId(), incomingNode);
+            return;
+        }
 
+        if (predecessor.getNodeId() < nodeId) {
+            if (Range.open(predecessor.getNodeId(), nodeId).contains(incomingNode.getNodeId())) {
+                setPredecessor(incomingNode);
                 nodeIdToBasicNodeObjectMap.putIfAbsent(incomingNode.getNodeId(), incomingNode);
-                return;
             }
-
-            if (predecessor.getNodeId() < self.getNodeId()) {
-                if (Range.open(predecessor.getNodeId(), self.getNodeId()).contains(incomingNode.getNodeId())) {
-                    predecessor = incomingNode;
-
-                    nodeIdToBasicNodeObjectMap.putIfAbsent(incomingNode.getNodeId(), incomingNode);
-                }
-            } else {
-                if (Range.openClosed(predecessor.getNodeId(), ArithmeticUtils.pow(2L, fingerRingSizeBits) - 1).contains(incomingNode.getNodeId())
-                    || Range.closedOpen(0L, self.getNodeId()).contains(incomingNode.getNodeId())) {
-                    predecessor = incomingNode;
-
-                    nodeIdToBasicNodeObjectMap.putIfAbsent(incomingNode.getNodeId(), incomingNode);
-                }
+        } else {
+            if (Range.openClosed(predecessor.getNodeId(), fingerRingHighestIndex).contains(incomingNode.getNodeId())
+                || Range.closedOpen(0L, nodeId).contains(incomingNode.getNodeId())) {
+                setPredecessor(incomingNode);
+                nodeIdToBasicNodeObjectMap.putIfAbsent(incomingNode.getNodeId(), incomingNode);
             }
-        } finally {
-            predecessorLock.unlock();
         }
     }
 
@@ -312,22 +346,30 @@ public class ChordNode {
         restTemplate.postForObject(uri, self, String.class);
     }
 
-    private int next = 0;
-    private ReentrantLock nextLock = new ReentrantLock();
+    private AtomicInteger fixFingerNext = new AtomicInteger(0);
 
+    /**
+     * called periodically. refreshes finger table entries.
+     * next stores the index of the next finger to fix.
+     *      n.fix fingers()
+     *          next = next + 1 ;
+     *          if (next > m)
+     *              next = 1 ;
+     *          finger[next] = find successor(n + 2^(next−1));
+     */
     @Scheduled(fixedRate = 1_500L)
     public void fixFingers() {
-        nextLock.lock();
-        try {
-            next++;
+        fixFingerNext.incrementAndGet();
 
-            if (next + 1 > fingerRingSizeBits) {
-                next = 0;
+        fixFingerNext.getAndUpdate(value -> {
+            if (value > fingerRingSizeBits - 1) {
+                return 0;
+            } else {
+                return value;
             }
+        });
 
-            fingerTable.get(next).setNodeId(findSuccessor((nodeId + ArithmeticUtils.pow(2L, next)) % ArithmeticUtils.pow(2L, fingerRingSizeBits)).getNodeId());
-        } finally {
-            nextLock.unlock();
-        }
+        fingerTable.get(fixFingerNext.get())
+            .setNodeId(findSuccessor((nodeId + ArithmeticUtils.pow(2L, fixFingerNext.get())) % fingerRingSize).getNodeId());
     }
 }
