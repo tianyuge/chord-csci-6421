@@ -3,8 +3,24 @@
 ## How To Run
 
 ```
-gradle buildApp
-java -jar chord-node-1.0.0.RELEASE.jar --spring.profiles.active=default --chord.node-name="john" --chord.node-port="18001" --chord.finger-ring-size-bits="7" --chord.bootstrapping-node="true"
+./gradlew chord-node:buildApp
+
+# To start a bootstrapping node
+java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
+    --spring.profiles.active=default \
+    --chord.node-name="${node-name}" \
+    --chord.node-port="${port}" \
+    --chord.finger-ring-size-bits="${size}" \
+    --chord.bootstrapping-node="true"
+
+# To start a normal node
+java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
+    --spring.profiles.active=default \
+    --chord.node-name="${node-name}" \
+    --chord.node-port="${port}" \
+    --chord.finger-ring-size-bits="${size}" \
+    --chord.bootstrapping-node="false"
+    --chord.joining-to-port="${known-node-port}"
 ```
 
 ## Reference
