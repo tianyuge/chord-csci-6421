@@ -2,7 +2,7 @@
 
 A Java implementation of of Chord P2P DHT protocol
 
-## How To Run
+## How to start a Chord node
 
 ### Build
 ```
@@ -30,7 +30,7 @@ $ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
       --chord.joining-to-port="${known-node-port}"
 ```
 
-## Example of a Chord network of size 128 and 3 nodes
+## Example of a Chord network of size 128 and containing 3 nodes
 ### Node: John on port 18001 as a bootstrapping node
 ```
 $ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
