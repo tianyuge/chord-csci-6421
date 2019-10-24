@@ -1,0 +1,28 @@
+import java.nio.charset.StandardCharsets
+import java.nio.file.FileSystems
+
+allprojects {
+    group = 'org.gty'
+    version = '1.0.0.RELEASE'
+    description = 'Chord Implementation for CSCI 6421'
+}
+
+subprojects { subProject ->
+    apply plugin: 'java'
+    apply plugin: 'idea'
+    apply plugin: 'project-report'
+
+    java.sourceCompatibility = JavaVersion.VERSION_12
+    java.targetCompatibility = JavaVersion.VERSION_12
+    [compileJava, compileTestJava]*.options*.encoding = "${StandardCharsets.UTF_8}"
+    javadoc.options.encoding = "${StandardCharsets.UTF_8}"
+
+    repositories {
+        jcenter()
+    }
+
+    clean.doLast {
+        project.delete "$projectDir${FileSystems.default.separator}out${FileSystems.default.separator}"
+    }
+}
+

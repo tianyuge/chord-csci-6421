@@ -1,0 +1,11 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+    }
+}
+
+include 'chord-demo-server'
+include 'chord-node'
+
+rootProject.name = 'chord-csci-6421'
+

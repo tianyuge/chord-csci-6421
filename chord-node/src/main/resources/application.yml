@@ -1,0 +1,7 @@
+server:
+  port: ${chord.node-port}
+
+spring:
+  http:
+    encoding:
+      force: true
