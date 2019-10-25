@@ -53,6 +53,11 @@ public class ChordController {
         return chordNode.getKeySet();
     }
 
+    @PostMapping(value = "/api/remove-key-set", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public void removeKeySet(@RequestBody Set<Long> keySet) {
+        chordNode.removeKeySet(keySet);
+    }
+
     @PostMapping(value = "/api/notify", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public void notify(@RequestBody BasicChordNode incomingNode) {
         chordNode.notify(incomingNode);

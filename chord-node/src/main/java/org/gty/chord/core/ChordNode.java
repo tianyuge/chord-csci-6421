@@ -5,12 +5,12 @@ import com.google.common.collect.Sets;
 import org.apache.commons.codec.binary.StringUtils;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.math3.util.ArithmeticUtils;
+import org.gty.chord.client.ChordNodeRestClient;
 import org.gty.chord.exception.ChordHealthCheckException;
 import org.gty.chord.init.config.ChordNodeInitializerProperties;
 import org.gty.chord.model.BasicChordNode;
 import org.gty.chord.model.fingertable.FingerTableEntry;
 import org.gty.chord.model.fingertable.FingerTableIdInterval;
-import org.gty.chord.client.ChordNodeRestClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 @Service
 public class ChordNode {
@@ -182,7 +183,7 @@ public class ChordNode {
      * search the local table for the highest predecessor of id
      *
      * n.closest-preceding-node(id)
-     *      for i = m downto 1
+     *      for i = m down-to 1
      *          if (finger[i] ∈ (n,id))
      *              return finger[i];
      *      return n;
@@ -222,6 +223,10 @@ public class ChordNode {
         return self;
     }
 
+    public void removeKeySet(Set<Long> keySet) {
+        this.keySet.removeAll(keySet);
+    }
+
     public void join(String knownNodeAddress, int knownNodePort) {
         BasicChordNode knownNode = queryKnownNode(knownNodeAddress, knownNodePort);
         join(knownNode);
@@ -242,6 +247,27 @@ public class ChordNode {
     private void join(BasicChordNode knownNode) {
         BasicChordNode successor = chordNodeRestClient.findSuccessorRemote(knownNode, nodeId);
         setImmediateSuccessor(successor);
+
+        takeOverKeysFromSuccessor(successor);
+    }
+
+    private void takeOverKeysFromSuccessor(BasicChordNode successor) {
+        Set<Long> successorKeySet = chordNodeRestClient.fetchKeySetRemote(successor);
+
+        Set<Long> keySetTakenFromSuccessor = successorKeySet.stream()
+            .filter(value -> {
+                if (successor.getNodeId() <= nodeId) {
+                    return Range.openClosed(successor.getNodeId(), nodeId).contains(value);
+                } else {
+                    return Range.openClosed(successor.getNodeId(), fingerRingHighestIndex).contains(value)
+                        || Range.closed(0L, nodeId).contains(value);
+                }
+            })
+            .collect(Collectors.toUnmodifiableSet());
+
+        chordNodeRestClient.removeKeySetRemote(successor, keySetTakenFromSuccessor);
+
+        keySet.addAll(keySetTakenFromSuccessor);
     }
 
     /**
@@ -324,7 +350,7 @@ public class ChordNode {
     /**
      * called periodically. refreshes finger table entries.
      * next stores the index of the next finger to fix.
-     *      n.fix fingers()
+     *      n.fix-fingers()
      *          next = next + 1 ;
      *          if (next > m)
      *              next = 1 ;
@@ -348,7 +374,7 @@ public class ChordNode {
 
     /**
      * called periodically. checks whether predecessor has failed.
-     *      n.check predecessor()
+     *      n.check-predecessor()
      *          if (predecessor has failed)
      *              predecessor = nil;
      */

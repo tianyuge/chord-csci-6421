@@ -3,6 +3,8 @@ package org.gty.chord.client;
 import org.gty.chord.exception.ChordHealthCheckException;
 import org.gty.chord.model.BasicChordNode;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -10,6 +12,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 
 @Service
 public class ChordNodeRestClient {
@@ -23,6 +26,8 @@ public class ChordNodeRestClient {
     private static final String GET_PREDECESSOR_PATH = PATH_PREFIX + "/get-predecessor";
     private static final String ASSIGN_KEY_PATH = PATH_PREFIX + "/assign-key";
     private static final String GET_BASIC_INFO_PATH = PATH_PREFIX + "/get-basic-info";
+    private static final String FETCH_KEY_SET = PATH_PREFIX + "/fetch-key-set";
+    private static final String REMOVE_KEY_SET = PATH_PREFIX + "/remove-key-set";
 
     private final RestTemplate restTemplate;
 
@@ -66,6 +71,25 @@ public class ChordNodeRestClient {
             .toUri();
 
         return restTemplate.getForObject(uri, BasicChordNode.class);
+    }
+
+    public Set<Long> fetchKeySetRemote(BasicChordNode targetNode) {
+        URI uri = UriComponentsBuilder.fromHttpUrl(buildUrlFromNode(targetNode, FETCH_KEY_SET))
+            .encode(StandardCharsets.UTF_8)
+            .build(true)
+            .toUri();
+
+        return restTemplate.exchange(uri, HttpMethod.GET, null, new ParameterizedTypeReference<Set<Long>>() {})
+            .getBody();
+    }
+
+    public void removeKeySetRemote(BasicChordNode targetNode, Set<Long> keySet) {
+        URI uri = UriComponentsBuilder.fromHttpUrl(buildUrlFromNode(targetNode, REMOVE_KEY_SET))
+            .encode(StandardCharsets.UTF_8)
+            .build(true)
+            .toUri();
+
+        restTemplate.postForObject(uri, keySet, Object.class);
     }
 
     public void healthCheck(BasicChordNode targetNode) {
