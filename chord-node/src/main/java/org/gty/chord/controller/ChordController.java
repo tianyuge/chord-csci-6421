@@ -3,16 +3,28 @@ package org.gty.chord.controller;
 import org.gty.chord.model.BasicChordNode;
 import org.gty.chord.core.ChordNode;
 import org.gty.chord.model.fingertable.FingerTableEntry;
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
+import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
 
 @RestController
-public class ChordController {
+public class ChordController implements ApplicationContextAware {
 
     private final ChordNode chordNode;
+
+    private ApplicationContext ctx;
+
+    @Override
+    public void setApplicationContext(@Nonnull ApplicationContext ctx) throws BeansException {
+        this.ctx = ctx;
+    }
 
     public ChordController(ChordNode chordNode) {
         this.chordNode = chordNode;
@@ -61,5 +73,10 @@ public class ChordController {
     @PostMapping(value = "/api/notify", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public void notify(@RequestBody BasicChordNode incomingNode) {
         chordNode.notify(incomingNode);
+    }
+
+    @GetMapping(value = "/api/shutdown", produces = MediaType.APPLICATION_JSON_VALUE)
+    public void shutdown() {
+        ((ConfigurableApplicationContext) ctx).close();
     }
 }
