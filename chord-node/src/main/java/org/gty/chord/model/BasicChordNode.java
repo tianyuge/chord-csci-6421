@@ -1,6 +1,7 @@
 package org.gty.chord.model;
 
 import com.google.common.base.MoreObjects;
+import org.gty.chord.core.ChordNode;
 
 public class BasicChordNode {
 
@@ -12,7 +13,7 @@ public class BasicChordNode {
     public BasicChordNode() {
     }
 
-    BasicChordNode(ChordNode chordNode) {
+    public BasicChordNode(ChordNode chordNode) {
         this(chordNode.getNodeName(),
             chordNode.getNodeAddress(),
             chordNode.getNodePort(),

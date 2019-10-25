@@ -1,6 +1,7 @@
-package org.gty.chord.job;
+package org.gty.chord.job.config;
 
-import org.gty.chord.model.ChordNode;
+import org.gty.chord.job.ChordNodeFixFingersJob;
+import org.gty.chord.core.ChordNode;
 import org.quartz.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

@@ -1,6 +1,6 @@
 package org.gty.chord.job;
 
-import org.gty.chord.model.ChordNode;
+import org.gty.chord.core.ChordNode;
 import org.quartz.JobExecutionContext;
 import org.springframework.scheduling.quartz.QuartzJobBean;
 

@@ -1,4 +1,4 @@
-package org.gty.chord.model;
+package org.gty.chord.core;
 
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
@@ -6,23 +6,25 @@ import org.apache.commons.codec.binary.StringUtils;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.math3.util.ArithmeticUtils;
 import org.gty.chord.exception.ChordHealthCheckException;
+import org.gty.chord.init.config.ChordNodeInitializerProperties;
+import org.gty.chord.model.BasicChordNode;
 import org.gty.chord.model.fingertable.FingerTableEntry;
 import org.gty.chord.model.fingertable.FingerTableIdInterval;
-import org.gty.chord.rest.ChordNodeRestClient;
+import org.gty.chord.client.ChordNodeRestClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+@Service
 public class ChordNode {
 
     private static final Logger logger = LoggerFactory.getLogger(ChordNode.class);
@@ -46,19 +48,19 @@ public class ChordNode {
 
     private final ChordNodeRestClient chordNodeRestClient;
 
-    String getNodeName() {
+    public String getNodeName() {
         return nodeName;
     }
 
-    String getNodeAddress() {
+    public String getNodeAddress() {
         return nodeAddress;
     }
 
-    Integer getNodePort() {
+    public Integer getNodePort() {
         return nodePort;
     }
 
-    long getNodeId() {
+    public long getNodeId() {
         return nodeId;
     }
 
@@ -66,15 +68,12 @@ public class ChordNode {
         return fingerTable;
     }
 
-    public ChordNode(String nodeName,
-                     String nodeAddress,
-                     Integer nodePort,
-                     Integer fingerRingSizeBits,
+    public ChordNode(ChordNodeInitializerProperties properties,
                      ChordNodeRestClient chordNodeRestClient) {
-        this.nodeName = nodeName;
-        this.nodeAddress = nodeAddress;
-        this.nodePort = nodePort;
-        this.fingerRingSizeBits = fingerRingSizeBits;
+        nodeName = properties.getNodeName();
+        nodeAddress = properties.getNodeAddress();
+        nodePort = properties.getNodePort();
+        fingerRingSizeBits = properties.getFingerRingSizeBits();
 
         fingerRingSize = ArithmeticUtils.pow(2L, fingerRingSizeBits);
         fingerRingHighestIndex = fingerRingSize - 1L;
@@ -223,6 +222,15 @@ public class ChordNode {
         return self;
     }
 
+    public void join(String knownNodeAddress, int knownNodePort) {
+        BasicChordNode knownNode = queryKnownNode(knownNodeAddress, knownNodePort);
+        join(knownNode);
+    }
+
+    private BasicChordNode queryKnownNode(String address, int port) {
+        return chordNodeRestClient.queryNode(address, port);
+    }
+
     /**
      * join a Chord ring containing node n'
      *      n.join(n')
@@ -231,7 +239,7 @@ public class ChordNode {
      *
      * @param knownNode node to be joined
      */
-    public void joiningToKnownNode(BasicChordNode knownNode) {
+    private void join(BasicChordNode knownNode) {
         BasicChordNode successor = chordNodeRestClient.findSuccessorRemote(knownNode, nodeId);
         setImmediateSuccessor(successor);
     }

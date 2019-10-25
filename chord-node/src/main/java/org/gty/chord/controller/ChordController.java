@@ -1,7 +1,7 @@
 package org.gty.chord.controller;
 
 import org.gty.chord.model.BasicChordNode;
-import org.gty.chord.model.ChordNode;
+import org.gty.chord.core.ChordNode;
 import org.gty.chord.model.fingertable.FingerTableEntry;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;

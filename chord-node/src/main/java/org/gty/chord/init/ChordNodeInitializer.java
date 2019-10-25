@@ -1,19 +1,12 @@
 package org.gty.chord.init;
 
+import org.gty.chord.core.ChordNode;
 import org.gty.chord.init.config.ChordNodeInitializerProperties;
-import org.gty.chord.model.BasicChordNode;
-import org.gty.chord.model.ChordNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
-
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
 
 @Service
 public class ChordNodeInitializer {
@@ -23,15 +16,10 @@ public class ChordNodeInitializer {
     private final ChordNode chordNode;
     private final ChordNodeInitializerProperties properties;
 
-    private final RestTemplate restTemplate;
-
     public ChordNodeInitializer(ChordNode chordNode,
-                                ChordNodeInitializerProperties properties,
-                                RestTemplateBuilder restTemplateBuilder) {
+                                ChordNodeInitializerProperties properties) {
         this.chordNode = chordNode;
         this.properties = properties;
-
-        restTemplate = restTemplateBuilder.build();
     }
 
     @EventListener
@@ -41,10 +29,7 @@ public class ChordNodeInitializer {
     }
 
     private void logChordNodeInfo() {
-        BasicChordNode self = chordNode.getBasicChordNode();
-
-        logger.info("Chord Initialized: name = {}, port = {}, id = {}",
-            self.getNodeName(), self.getNodePort(), self.getNodeId());
+        logger.info("Chord Initialized: {}", chordNode.getBasicChordNode());
     }
 
     private void joiningThisNodeToExistingNodeIfPossible() {
@@ -52,17 +37,7 @@ public class ChordNodeInitializer {
         if (!properties.getBootstrappingNode()
             && properties.getJoiningToAddress() != null
             && properties.getJoiningToPort() != null) {
-            BasicChordNode existingNode = queryKnownNodeByPortRemote(properties.getNodeAddress(), properties.getJoiningToPort());
-            chordNode.joiningToKnownNode(existingNode);
+            chordNode.join(properties.getJoiningToAddress(), properties.getJoiningToPort());
         }
-    }
-
-    private BasicChordNode queryKnownNodeByPortRemote(String knownNodeAddress, Integer knownNodePort) {
-        URI uri = UriComponentsBuilder.fromHttpUrl("http://" + knownNodeAddress + ":" + knownNodePort + "/api/get-basic-info")
-            .encode(StandardCharsets.UTF_8)
-            .build(true)
-            .toUri();
-
-        return restTemplate.getForObject(uri, BasicChordNode.class);
     }
 }
