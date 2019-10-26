@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en-US" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Chord Network Demo</title>
+</head>
+<body>
+<canvas id="my-canvas"></canvas>
+
+<script th:src="@{/js/jquery-3.4.1.min.js}"></script>
+
+<script type="application/javascript">
+    $(document).ready(drawCanvas);
+
+    function drawCanvas() {
+        var canvas = document.getElementById("my-canvas");
+        var ctx = canvas.getContext("2d");
+        ctx.strokeStyle = "#FF0000";
+        ctx.beginPath();
+        ctx.arc(100, 75, 50, 0, 2 * Math.PI);
+        ctx.stroke();
+    }
+</script>
+</body>
+</html>
