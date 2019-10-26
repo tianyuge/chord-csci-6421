@@ -124,7 +124,7 @@ public class ChordNode {
         return fingerTable;
     }
 
-    private BasicChordNode getImmediateSuccessor() {
+    public BasicChordNode getImmediateSuccessor() {
         return fingerTable.get(0).getNode().get();
     }
 

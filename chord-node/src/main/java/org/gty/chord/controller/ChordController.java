@@ -75,6 +75,16 @@ public class ChordController implements ApplicationContextAware {
         chordNode.notify(incomingNode);
     }
 
+    @GetMapping(value = "/api/get-immediate-successor", produces = MediaType.APPLICATION_JSON_VALUE)
+    public BasicChordNode getImmediateSuccessor() {
+        return chordNode.getImmediateSuccessor();
+    }
+
+    @GetMapping(value = "/api/get-immediate-predecessor", produces = MediaType.APPLICATION_JSON_VALUE)
+    public BasicChordNode getImmediatePredecessor() {
+        return chordNode.getPredecessor();
+    }
+
     @GetMapping(value = "/api/shutdown", produces = MediaType.APPLICATION_JSON_VALUE)
     public void shutdown() {
         ((ConfigurableApplicationContext) ctx).close();
