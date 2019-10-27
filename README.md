@@ -33,6 +33,12 @@ $ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
       --chord.joining-to-port="${known-node-port}"
 ```
 
+### To start the demo server
+```
+$ java -jar ./chord-node/build/libs/chord-demo-server-1.0.0.RELEASE.jar \
+      --spring.profiles.active=default
+```
+
 ## Example of a Chord network of size 128 and containing 4 nodes
 ### Node: John on 127.0.0.1:18001 as a bootstrapping node
 ```
@@ -62,7 +68,7 @@ $ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
 ```
 $ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
       --spring.profiles.active=default \
-      --chord.node-name="austin" \
+      --chord.node-name="taylor" \
       --chord.node-address="127.0.0.1" \
       --chord.node-port="18162" \
       --chord.finger-ring-size-bits="7" \
@@ -75,7 +81,7 @@ $ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
 ```
 $ java -jar ./chord-node/build/libs/chord-node-1.0.0.RELEASE.jar \
       --spring.profiles.active=default \
-      --chord.node-name="austin" \
+      --chord.node-name="matthew" \
       --chord.node-address="127.0.0.1" \
       --chord.node-port="18777" \
       --chord.finger-ring-size-bits="7" \
