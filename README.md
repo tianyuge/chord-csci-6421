@@ -6,7 +6,7 @@ A Java implementation of of Chord P2P DHT protocol
 
 ### Build
 ```
-$ ./gradlew chord-node:buildApp
+$ ./gradlew buildApp
 ```
 
 ### To start a bootstrapping node
