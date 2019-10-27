@@ -2,23 +2,227 @@
 <html lang="en-US" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" th:href="@{/css/bootstrap.css}">
     <title>Chord Network Demo</title>
 </head>
 <body>
-<canvas id="my-canvas"></canvas>
+<div class="container-fluid">
+    <div class="row justify-content-md-center">
+        <h1 class="display-1">Chord Demo Server</h1>
+    </div>
+
+    <div class="row">
+        <div class="col-sm-5">
+            <div class="row justify-content-md-center">
+                <h3>Registered Nodes</h3>
+            </div>
+            <div class="row justify-content-md-center">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Node's Id</th>
+                            <th scope="col">Node's Name</th>
+                            <th scope="col">Operation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="node : ${registeredNodes}">
+                            <td th:text="${node.nodeId}"></td>
+                            <td th:text="${node.nodeName}"></td>
+                            <td>
+                                <button type="button" class="btn btn-xs btn-primary"
+                                        th:onclick="'onShowDetails(' + ${node.nodeId} + ');'">
+                                    Show Details
+                                </button>
+                                <button type="button" class="btn btn-xs btn-success"
+                                        th:onclick="'onFindSuccessorModal(' + ${node.nodeId} + ');'">
+                                    Find Successor
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-sm-2">
+            <form id="node-register-form">
+                <div class="form-group">
+                    <label for="ip-address">Node's IP Address</label>
+                    <input type="text" class="form-control" id="ip-address" placeholder="Enter node's IP address">
+                </div>
+
+                <div class="form-group">
+                    <label for="port">Node's Port</label>
+                    <input type="text" class="form-control" id="port" placeholder="Enter node's IP port">
+                </div>
+
+                <button id="node-register-btn" class="btn btn-primary">Register</button>
+                <button id="node-register-form-reset-btn" class="btn btn-secondary">Reset</button>
+            </form>
+        </div>
+
+        <div class="col-sm-5">
+        </div>
+    </div>
+</div>
+
+<div id="node-detail-modal" class="modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Node's Detail</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <pre id="node-detail-modal-body"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-dismiss="modal">Okay</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="find-successor-modal" class="modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Find Successor on Node [<span id="find-successor-modal-title"></span>]</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"
+                        onclick="onFindSuccessorModalClose()">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="find-successor-form">
+                    <div class="form-group">
+                        <div class="row">
+                            <div class="col-4">
+                                <label for="k">K</label>
+                            </div>
+                            <div class="col-4">
+                                <input type="text" class="form-control" id="k" placeholder="k">
+                            </div>
+                            <div class="col-4">
+                                <button type="button"
+                                        id="find-successor"
+                                        class="btn btn-sm btn-success"
+                                        onclick="onFindSuccessor();">Find Successor</button>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <pre id="successor-info"></pre>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-dismiss="modal" onclick="onFindSuccessorModalClose()">Okay</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script th:src="@{/js/jquery-3.4.1.min.js}"></script>
-
+<script th:src="@{/js/bootstrap.js}"></script>
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    var basePath = /*[[@{/}]]*/ null;
+    /*]]>*/
+</script>
 <script type="application/javascript">
-    $(document).ready(drawCanvas);
+    $(document).ready(init);
 
-    function drawCanvas() {
-        var canvas = document.getElementById("my-canvas");
-        var ctx = canvas.getContext("2d");
-        ctx.strokeStyle = "#FF0000";
-        ctx.beginPath();
-        ctx.arc(100, 75, 50, 0, 2 * Math.PI);
-        ctx.stroke();
+    function init() {
+        bindNodeRegisterButton();
+    }
+
+    function bindNodeRegisterButton() {
+        var $nodeRegisterForm = $("#node-register-form");
+        var $nodeRegisterButton = $("#node-register-btn");
+        var $nodeRegisterFormResetButton = $('#node-register-form-reset-btn');
+
+        $nodeRegisterForm.on('submit', function (event) {
+            event.preventDefault();
+        });
+
+        $nodeRegisterButton.on('click', function () {
+            $.ajax({
+                url: 'http://localhost:8080/api/register-node',
+                type: 'POST',
+                dataType: 'json',
+                contentType: 'application/json;charset=utf-8',
+                data: JSON.stringify({
+                    address: $("#node-register-form input[id=ip-address]").val(),
+                    port: $("#node-register-form input[id=port]").val()
+                }),
+                success: function () {
+                    location.reload()
+                }
+            })
+        });
+
+        $nodeRegisterFormResetButton.on('click', function () {
+            document.getElementById("node-register-form").reset();
+        })
+    }
+
+    function onShowDetails(nodeId) {
+        $.ajax({
+            url: 'http://localhost:8080/api/query-node-info?id=' + nodeId,
+            type: 'GET',
+            dataType: 'json',
+            success: function (result) {
+                var $modal = $('#node-detail-modal');
+
+                $modal.on('show.bs.modal', function () {
+                    var a = JSON.stringify(result, undefined, 2);
+                    $(this).find('#node-detail-modal-body').html(a);
+                });
+
+                $modal.modal('toggle')
+            }
+        })
+    }
+
+    function onFindSuccessorModal(nodeId) {
+        var $modal = $('#find-successor-modal');
+
+        $modal.on('show.bs.modal', function () {
+            $(this).find('#find-successor-modal-title').html(nodeId);
+        });
+
+        $modal.modal('toggle');
+    }
+
+    function onFindSuccessor() {
+        var nodeId = $('#find-successor-modal-title').html();
+        $.ajax({
+            url: 'http://localhost:8080/api/query-node-info?id=' + nodeId,
+            type: 'GET',
+            dataType: 'json',
+            success: function (result) {
+                var key = $('#k').val();
+
+                $.ajax({
+                    url: 'http://localhost:8080/api/find-successor?id=' + nodeId + '&key=' + key,
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function (result) {
+                        $('#successor-info').html(JSON.stringify(result, undefined, 2))
+                    }
+                })
+            }
+        })
+    }
+
+    function onFindSuccessorModalClose() {
+        $('#k').val('');
+        $('#successor-info').html('');
     }
 </script>
 </body>
